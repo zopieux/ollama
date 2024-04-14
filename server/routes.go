@@ -144,6 +144,14 @@ func isSupportedImageType(image []byte) bool {
 	return slices.Contains(allowedTypes, contentType)
 }
 
+func getGrammar(format, grammar string) string {
+	switch format {
+	case "json":
+		return jsonGrammar
+	}
+	return grammar
+}
+
 func GenerateHandler(c *gin.Context) {
 	loaded.mu.Lock()
 	defer loaded.mu.Unlock()
@@ -166,11 +174,14 @@ func GenerateHandler(c *gin.Context) {
 	case req.Model == "":
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "model is required"})
 		return
+	case req.Raw && (req.Template != "" || req.System != "" || len(req.Context) > 0):
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "raw mode does not support template, system, or context"})
+		return
 	case len(req.Format) > 0 && req.Format != "json":
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "format must be json"})
 		return
-	case req.Raw && (req.Template != "" || req.System != "" || len(req.Context) > 0):
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "raw mode does not support template, system, or context"})
+	case req.Format != "" && req.Grammar != "":
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "only one of 'format' or 'grammar' is allowed at a time"})
 		return
 	}
 
@@ -346,7 +357,7 @@ func GenerateHandler(c *gin.Context) {
 		// Start prediction
 		predictReq := llm.PredictOpts{
 			Prompt:  prompt,
-			Format:  req.Format,
+			Grammar: getGrammar(req.Format, req.Grammar),
 			Images:  images,
 			Options: opts,
 		}
@@ -1231,8 +1242,8 @@ func ChatHandler(c *gin.Context) {
 	case req.Model == "":
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "model is required"})
 		return
-	case len(req.Format) > 0 && req.Format != "json":
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "format must be json"})
+	case req.Format != "" && req.Grammar != "":
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "only one of 'format' or 'grammar' is allowed at a time"})
 		return
 	}
 
@@ -1357,7 +1368,7 @@ func ChatHandler(c *gin.Context) {
 		// Start prediction
 		predictReq := llm.PredictOpts{
 			Prompt:  prompt,
-			Format:  req.Format,
+			Grammar: getGrammar(req.Format, req.Grammar),
 			Images:  images,
 			Options: opts,
 		}
@@ -1396,3 +1407,31 @@ func ChatHandler(c *gin.Context) {
 
 	streamResponse(c, ch)
 }
+
+const jsonGrammar = `
+root   ::= object
+value  ::= object | array | string | number | ("true" | "false" | "null") ws
+
+object ::=
+  "{" ws (
+            string ":" ws value
+    ("," ws string ":" ws value)*
+  )? "}" ws
+
+array  ::=
+  "[" ws (
+            value
+    ("," ws value)*
+  )? "]" ws
+
+string ::=
+  "\"" (
+    [^"\\] |
+    "\\" (["\\/bfnrt] | "u" [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F]) # escapes
+  )* "\"" ws
+
+number ::= ("-"? ([0-9] | [1-9] [0-9]*)) ("." [0-9]+)? ([eE] [-+]? [0-9]+)? ws
+
+# Optional space: by convention, applied in this grammar after literal chars when allowed
+ws ::= ([ \t\n] ws)?
+`
