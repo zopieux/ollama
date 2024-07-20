@@ -301,6 +301,12 @@ func RunHandler(cmd *cobra.Command, args []string) error {
 	}
 	opts.Format = format
 
+	grammar, err := cmd.Flags().GetString("grammar")
+	if err != nil {
+		return err
+	}
+	opts.Grammar = grammar
+
 	keepAlive, err := cmd.Flags().GetString("keepalive")
 	if err != nil {
 		return err
@@ -842,6 +848,7 @@ type runOptions struct {
 	Messages    []api.Message
 	WordWrap    bool
 	Format      string
+	Grammar     string
 	System      string
 	Template    string
 	Images      []api.ImageData
@@ -949,6 +956,7 @@ func chat(cmd *cobra.Command, opts runOptions) (*api.Message, error) {
 		Model:    opts.Model,
 		Messages: opts.Messages,
 		Format:   opts.Format,
+		Grammar:  opts.Grammar,
 		Options:  opts.Options,
 	}
 
@@ -1036,6 +1044,7 @@ func generate(cmd *cobra.Command, opts runOptions) error {
 		Context:   generateContext,
 		Images:    opts.Images,
 		Format:    opts.Format,
+		Grammar:   opts.Grammar,
 		System:    opts.System,
 		Template:  opts.Template,
 		Options:   opts.Options,
@@ -1254,6 +1263,7 @@ func NewCLI() *cobra.Command {
 	runCmd.Flags().Bool("insecure", false, "Use an insecure registry")
 	runCmd.Flags().Bool("nowordwrap", false, "Don't wrap words to the next line automatically")
 	runCmd.Flags().String("format", "", "Response format (e.g. json)")
+	runCmd.Flags().String("grammar", "", "Response grammar")
 	serveCmd := &cobra.Command{
 		Use:     "serve",
 		Aliases: []string{"start"},

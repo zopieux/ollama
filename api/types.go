@@ -65,6 +65,7 @@ type GenerateRequest struct {
 
 	// Format specifies the format to return a response in.
 	Format string `json:"format"`
+	Grammar string `json:"grammar"`
 
 	// KeepAlive controls how long the model will stay loaded in memory following
 	// this request.
@@ -92,6 +93,7 @@ type ChatRequest struct {
 
 	// Format is the format to return the response in (e.g. "json").
 	Format string `json:"format"`
+	Grammar string `json:"grammar"`
 
 	// KeepAlive controls how long the model will stay loaded into memory
 	// followin the request.
